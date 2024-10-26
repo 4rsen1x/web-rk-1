@@ -4,88 +4,63 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 )
 
-type Input struct {
-	FirstNumber  *int    `json:"first_number"`
-	SecondNumber *int    `json:"second_number"`
-	Operator     *string `json:"operator"`
-}
-
 type Output struct {
-	Result float64 `json:"result"`
+	Result int `json:"result"`
 }
 
-// Обработчик HTTP-запроса
-func CalculateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		w.WriteHeader(405)
-		w.Write([]byte("method not allowed"))
+func ChessTableHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("Method not allowed"))
 		return
 	}
 
-	var input Input
-
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&input)
-	if err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte(err.Error()))
+	nParam := r.URL.Query().Get("N")
+	if nParam == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing parameter N"))
 		return
 	}
 
-	if input.FirstNumber == nil {
-		w.WriteHeader(400)
-		w.Write([]byte("first_number is missing"))
-		return
-	}
-	if input.SecondNumber == nil {
-		w.WriteHeader(400)
-		w.Write([]byte("second_number is missing"))
-		return
-	}
-	if input.Operator == nil {
-		w.WriteHeader(400)
-		w.Write([]byte("operator is missing"))
+	n, err := strconv.Atoi(nParam)
+	if err != nil || n <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid parameter N"))
 		return
 	}
 
-	var output Output
+	// totalCells := n * n
+	// closedCells := 2
+	// availableCells := totalCells - closedCells
 
-	switch *input.Operator {
-	case "+":
-		output.Result = float64(*input.FirstNumber) + float64(*input.SecondNumber)
-	case "-":
-		output.Result = float64(*input.FirstNumber) - float64(*input.SecondNumber)
-	case "*":
-		output.Result = float64(*input.FirstNumber) * float64(*input.SecondNumber)
-	case "/":
-		if *input.SecondNumber == 0 {
-			w.WriteHeader(400)
-			w.Write([]byte("division by zero is not allowed"))
-			return
-		}
-		output.Result = float64(*input.FirstNumber) / float64(*input.SecondNumber)
-	default:
-		w.WriteHeader(400)
-		w.Write([]byte("unknown operator"))
-		return
+	// result := availableCells / 2
+
+	var result int
+	totalCells := n * n
+
+	
+	if n == 1 {
+		result = 0;
+	} else if n%2 == 0 {
+		result = ((totalCells-2) - 2) / 2
+	} else {
+		result = ((totalCells - 2) - 1) / 2
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	respBytes, _ := json.Marshal(output)
-	w.Write(respBytes)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Output{Result: result})
 }
 
 func main() {
-	// Регистрируем обработчик для пути "/calculate"
-	http.HandleFunc("/calculate", CalculateHandler)
+	http.HandleFunc("/chess_table", ChessTableHandler)
 
-	// Запускаем веб-сервер на порту 8081
-	fmt.Println("starting server...")
+	fmt.Println("starting server on 127.0.0.1:8081...")
 	err := http.ListenAndServe("127.0.0.1:8081", nil)
 	if err != nil {
-		fmt.Println("Ошибка запуска сервера:", err)
+		fmt.Println("Error starting server:", err)
 	}
 }
